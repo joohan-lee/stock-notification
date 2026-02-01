@@ -1,0 +1,45 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Database
+data/*.db
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.egg-info/
+
+# Config (contains local settings)
+config.yaml
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db

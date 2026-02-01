@@ -1,0 +1,34 @@
+# Modo Configuration Example
+# Copy this file to config.yaml and customize
+
+database:
+  path: "data/modo.db"
+
+data_source:
+  provider: yahoo_finance
+  symbol_sync:
+    enabled: true
+    frequency: daily
+    exchanges:
+      - NYSE
+      - NASDAQ
+
+schedule:
+  timezone: "America/New_York"
+  alert_check:
+    frequency: hourly
+  market_hours_only: false
+
+notifications:
+  discord:
+    mention_on_critical: true
+    include_chart_link: true
+  email:
+    smtp_host: "smtp.gmail.com"
+    smtp_port: 587
+
+advanced:
+  log_level: INFO
+  alert_cooldown_hours: 24
+  max_retries: 3
+  retry_delay_seconds: 5
