@@ -6,22 +6,21 @@ import os
 from datetime import datetime
 
 import requests
-from dotenv import load_dotenv
 
 from src.database.connection import Database
 from src.database.repository import UserRepository, WatchlistRepository, RuleRepository
 
 
-def main():
-    load_dotenv()
+def run_healthcheck(db: Database) -> None:
+    """Run health check and send status to Discord.
+
+    Args:
+        db: Database instance (already initialized)
+    """
     webhook_url = os.getenv("DISCORD_WEBHOOK_URL")
     if not webhook_url:
         print("DISCORD_WEBHOOK_URL not set")
         return
-
-    # Gather status info
-    db = Database("data/modo.db")
-    db.initialize()
 
     users = UserRepository(db).list_all()
     all_symbols = []
@@ -31,7 +30,6 @@ def main():
         rules = RuleRepository(db).get_enabled_rules(user.id)
         all_symbols.extend(symbols)
         all_rules.extend(rules)
-    db.close()
 
     symbol_list = ", ".join(s.ticker for s in all_symbols) or "None"
     rule_lines = []
@@ -73,7 +71,3 @@ def main():
 
     response = requests.post(webhook_url, json=payload, timeout=10)
     print(f"{now} - Health check sent (status: {response.status_code})")
-
-
-if __name__ == "__main__":
-    main()

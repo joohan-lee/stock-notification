@@ -20,7 +20,7 @@ from src.database.models import Symbol, User, UserRule
 from src.data.fetcher import StockDataFetcher, StockData, HistoricalData
 from src.rules.engine import RuleEngine, AlertSeverity
 from src.notifiers.discord import DiscordNotifier
-from src.main import ModoApp
+from src.app import ModoApp
 
 
 class TestFullAlertFlow:

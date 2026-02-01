@@ -136,8 +136,8 @@ Example: `price < 150 and daily_change_pct < -3`
 ```
 modo/
 ├── src/
-│   ├── main.py           # Application entry point
-│   ├── cli.py            # CLI commands
+│   ├── cli.py            # CLI entry point
+│   ├── app.py            # ModoApp core logic
 │   ├── config.py         # Configuration loader
 │   ├── database/         # SQLite models and repositories
 │   ├── data/             # Stock data fetching

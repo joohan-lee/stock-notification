@@ -3,12 +3,10 @@ Main application entry point.
 """
 
 import logging
-from datetime import datetime
 
 from dotenv import load_dotenv
 
 load_dotenv()
-from typing import Optional
 
 from src.database.connection import Database
 from src.database.models import Symbol, AlertHistory, UserRule
@@ -145,50 +143,3 @@ class ModoApp:
 
         except Exception as e:
             logger.error(f"Error checking {symbol.ticker}: {e}")
-
-
-def main():
-    """CLI entry point."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Modo Stock Alert Service")
-    parser.add_argument(
-        "--config", default="config.yaml", help="Path to config file"
-    )
-    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Run without sending notifications"
-    )
-
-    args = parser.parse_args()
-
-    # Setup logging
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    )
-
-    # Load config
-    from src.config import load_config
-
-    config = load_config(args.config)
-
-    # Initialize database
-    db = Database(config.database.path)
-    db.initialize()
-
-    # Run app
-    app = ModoApp(
-        db=db,
-        alert_cooldown_hours=config.advanced.alert_cooldown_hours,
-    )
-
-    if args.dry_run:
-        logger.info("Dry run mode - no notifications will be sent")
-    else:
-        app.run_check()
-
-
-if __name__ == "__main__":
-    main()

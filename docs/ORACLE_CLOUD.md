@@ -122,8 +122,8 @@ crontab -e
 # Modo: Alert check every hour
 0 * * * * cd ~/stock-notification && /home/opc/.local/bin/uv run modo check >> ~/stock-notification/logs/cron.log 2>&1
 
-# Modo: Healthcheck every Monday at 9:00 AM UTC
-0 9 * * 1 cd ~/stock-notification && /home/opc/.local/bin/uv run modo healthcheck >> ~/stock-notification/logs/cron.log 2>&1
+# Modo: Healthcheck every Sunday at 02:00 UTC
+0 2 * * 0 cd ~/stock-notification && /home/opc/.local/bin/uv run modo healthcheck >> ~/stock-notification/logs/cron.log 2>&1
 ```
 
 ```bash
@@ -149,7 +149,7 @@ sudo grep modo /var/log/cron
 
 ## Healthcheck
 
-The weekly healthcheck cron job (Monday 9:00 AM UTC) sends a Discord notification confirming the service is running. This helps detect if cron has stopped or the instance was restarted.
+The weekly healthcheck cron job (Sunday 02:00 UTC) sends a Discord notification confirming the service is running. This helps detect if cron has stopped or the instance was restarted.
 
 ---
 

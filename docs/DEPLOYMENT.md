@@ -109,8 +109,8 @@ Add the following entries:
 # Modo: Alert check every hour
 0 * * * * cd ~/stock-notification && /home/opc/.local/bin/uv run modo check >> ~/stock-notification/logs/cron.log 2>&1
 
-# Modo: Healthcheck every Monday at 9:00 AM UTC
-0 9 * * 1 cd ~/stock-notification && /home/opc/.local/bin/uv run modo healthcheck >> ~/stock-notification/logs/cron.log 2>&1
+# Modo: Healthcheck every Sunday at 02:00 UTC
+0 2 * * 0 cd ~/stock-notification && /home/opc/.local/bin/uv run modo healthcheck >> ~/stock-notification/logs/cron.log 2>&1
 ```
 
 ### 4.2 Create Log Directory

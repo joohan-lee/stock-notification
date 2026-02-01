@@ -148,7 +148,7 @@ class EmailNotifier(Notifier):
 modo/
 ├── src/
 │   ├── __init__.py
-│   ├── main.py              # Entry point
+│   ├── app.py               # ModoApp core logic
 │   ├── config.py            # Configuration loader
 │   ├── database/
 │   │   ├── __init__.py

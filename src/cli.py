@@ -4,6 +4,7 @@ CLI commands for Modo.
 
 import argparse
 import json
+import logging
 import os
 from typing import Optional
 
@@ -147,6 +148,15 @@ def main():
     db_subparsers.add_parser("migrate", help="Run migrations")
     db_subparsers.add_parser("rollback", help="Rollback last migration")
 
+    # Check command
+    check_parser = subparsers.add_parser("check", help="Run alert check")
+    check_parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+    check_parser.add_argument("--dry-run", action="store_true", help="Run without sending notifications")
+    check_parser.add_argument("--config", default="config.yaml", help="Path to config file")
+
+    # Healthcheck command
+    subparsers.add_parser("healthcheck", help="Send health check status to Discord")
+
     args = parser.parse_args()
 
     # Initialize database
@@ -207,6 +217,32 @@ def main():
             print("Migrations applied")
         elif args.action == "rollback":
             print("Rollback not yet implemented")
+
+    elif args.command == "check":
+        log_level = logging.DEBUG if args.debug else logging.INFO
+        logging.basicConfig(
+            level=log_level,
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+
+        from src.config import load_config
+        from src.app import ModoApp
+
+        config = load_config(args.config)
+        app = ModoApp(
+            db=db,
+            alert_cooldown_hours=config.advanced.alert_cooldown_hours,
+        )
+
+        if args.dry_run:
+            logging.getLogger(__name__).info("Dry run mode - no notifications will be sent")
+        else:
+            app.run_check()
+
+    elif args.command == "healthcheck":
+        from src.healthcheck import run_healthcheck
+
+        run_healthcheck(db)
 
     db.close()
 
