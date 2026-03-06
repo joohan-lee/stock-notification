@@ -164,7 +164,7 @@ sudo grep modo /var/log/cron
 ```bash
 # From local machine - sync updated files
 rsync -avz --exclude '.venv' --exclude '__pycache__' --exclude '.git' \
-  --exclude 'data' --exclude '.env' --exclude 'config.yaml' --exclude 'logs' \
+  --exclude '/data' --exclude '.env' --exclude 'config.yaml' --exclude 'logs' \
   -e "ssh -i ~/.ssh/oracle-modo.key" \
   ./ opc@157.151.233.33:~/stock-notification/
 

@@ -46,5 +46,23 @@ bun run lint                        # All files
 bun run lint:claude && bun run test
 ```
 
+# Commit Convention
+
+* Use conventional commit tags in commit messages
+* Do NOT include `Co-Authored-By` in commit messages
+
+| Tag | Description |
+|-----|-------------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `refactor` | Code restructuring without behavior change |
+| `docs` | Documentation only |
+| `test` | Adding or updating tests |
+| `chore` | Build, config, tooling changes |
+| `style` | Formatting, whitespace (no logic change) |
+| `perf` | Performance improvement |
+
+Example: `feat: add daily change rule support`
+
 # Rules
 * Use English for all documentation, code comments.
