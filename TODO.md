@@ -62,5 +62,5 @@
 - [x] Cron-based scheduled execution (hourly alert check)
 - [x] Weekly healthcheck via cron
 
-**Not Started:**
-- [ ] Email notification
+**Completed (continued):**
+- [x] Email notification (Gmail SMTP, WARNING+ only, [MODO] prefix)

@@ -131,6 +131,157 @@ class MonthlyHighDropRule(Rule):
         )
 
 
+class MonthlyLowRiseRule(Rule):
+    """Rule for detecting rises from monthly low."""
+
+    def __init__(self, thresholds: list[float]):
+        """
+        Initialize monthly low rise rule.
+
+        Args:
+            thresholds: List of rise percentages to alert on (e.g., [5, 7, 10])
+        """
+        self.thresholds = sorted(thresholds)  # Sort ascending
+
+    def evaluate(
+        self,
+        stock_data: StockData,
+        historical_data: Optional[HistoricalData],
+    ) -> list[Alert]:
+        if historical_data is None:
+            return []
+
+        rise_pct = historical_data.rise_from_low(stock_data.current_price)
+        alerts = []
+
+        for threshold in self.thresholds:
+            if rise_pct >= threshold:
+                severity = self._get_severity(threshold)
+                alerts.append(
+                    Alert(
+                        ticker=stock_data.ticker,
+                        rule_type="monthly_low_rise",
+                        message=self._format_message(
+                            stock_data.ticker,
+                            stock_data.current_price,
+                            historical_data.monthly_low,
+                            rise_pct,
+                            threshold,
+                        ),
+                        severity=severity,
+                        current_price=stock_data.current_price,
+                        triggered_at=datetime.now(),
+                        metadata={
+                            "threshold": threshold,
+                            "monthly_low": historical_data.monthly_low,
+                            "rise_pct": rise_pct,
+                        },
+                    )
+                )
+
+        return alerts
+
+    def _get_severity(self, threshold: float) -> AlertSeverity:
+        """Determine severity based on threshold."""
+        if threshold >= 10:
+            return AlertSeverity.CRITICAL
+        elif threshold >= 7:
+            return AlertSeverity.WARNING
+        else:
+            return AlertSeverity.INFO
+
+    def _format_message(
+        self,
+        ticker: str,
+        current_price: float,
+        monthly_low: float,
+        rise_pct: float,
+        threshold: float,
+    ) -> str:
+        """Format alert message."""
+        return (
+            f"{ticker} rose {threshold:.0f}% from monthly low. "
+            f"Current: ${current_price:.2f}, Low: ${monthly_low:.2f} "
+            f"(actual rise: +{rise_pct:.1f}%)"
+        )
+
+
+class PriceTargetRule(Rule):
+    """Rule for detecting price changes relative to a fixed reference price."""
+
+    def __init__(self, reference_price: float, thresholds: list[float]):
+        """
+        Initialize price target rule.
+
+        Args:
+            reference_price: Fixed reference price (e.g., entry price)
+            thresholds: List of % thresholds to alert on (e.g., [-10, -5, 5, 10])
+        """
+        self.reference_price = reference_price
+        self.thresholds = thresholds
+
+    def evaluate(
+        self,
+        stock_data: StockData,
+        historical_data: Optional[HistoricalData],
+    ) -> list[Alert]:
+        change_pct = ((stock_data.current_price - self.reference_price) / self.reference_price) * 100
+        alerts = []
+
+        for threshold in self.thresholds:
+            triggered = (threshold > 0 and change_pct >= threshold) or (threshold < 0 and change_pct <= threshold)
+            if triggered:
+                severity = self._get_severity(threshold)
+                alerts.append(
+                    Alert(
+                        ticker=stock_data.ticker,
+                        rule_type="price_target",
+                        message=self._format_message(
+                            stock_data.ticker,
+                            stock_data.current_price,
+                            change_pct,
+                            threshold,
+                        ),
+                        severity=severity,
+                        current_price=stock_data.current_price,
+                        triggered_at=datetime.now(),
+                        metadata={
+                            "threshold": threshold,
+                            "reference_price": self.reference_price,
+                            "change_pct": change_pct,
+                        },
+                    )
+                )
+
+        return alerts
+
+    def _get_severity(self, threshold: float) -> AlertSeverity:
+        """Determine severity based on threshold magnitude."""
+        abs_threshold = abs(threshold)
+        if abs_threshold >= 10:
+            return AlertSeverity.CRITICAL
+        elif abs_threshold >= 5:
+            return AlertSeverity.WARNING
+        else:
+            return AlertSeverity.INFO
+
+    def _format_message(
+        self,
+        ticker: str,
+        current_price: float,
+        change_pct: float,
+        threshold: float,
+    ) -> str:
+        """Format alert message."""
+        direction = "dropped" if threshold < 0 else "rose"
+        sign = "+" if threshold > 0 else ""
+        actual_sign = "+" if change_pct >= 0 else ""
+        return (
+            f"{ticker} {direction} {sign}{threshold:.0f}% from entry ${self.reference_price:.2f}. "
+            f"Current: ${current_price:.2f} (actual: {actual_sign}{change_pct:.1f}%)"
+        )
+
+
 class DailyChangeRule(Rule):
     """Rule for detecting significant daily price changes."""
 

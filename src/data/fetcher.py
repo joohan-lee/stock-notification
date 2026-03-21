@@ -47,6 +47,12 @@ class HistoricalData:
             return 0.0
         return ((current_price - self.monthly_high) / self.monthly_high) * 100
 
+    def rise_from_low(self, current_price: float) -> float:
+        """Calculate rise percentage from monthly low."""
+        if self.monthly_low == 0:
+            return 0.0
+        return ((current_price - self.monthly_low) / self.monthly_low) * 100
+
     def volume_ratio(self, current_volume: int) -> float:
         """Calculate volume ratio vs average."""
         if self.avg_volume_20d == 0:

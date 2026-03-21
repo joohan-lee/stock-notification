@@ -11,6 +11,8 @@ from .types import (
     Alert,
     AlertSeverity,
     MonthlyHighDropRule,
+    MonthlyLowRiseRule,
+    PriceTargetRule,
     DailyChangeRule,
     VolumeSpikeRule,
     CustomRule,
@@ -75,6 +77,15 @@ class RuleEngine:
         if rule_type == "monthly_high_drop":
             thresholds = params.get("thresholds", [-5, -10, -15, -20])
             return MonthlyHighDropRule(thresholds=thresholds)
+
+        elif rule_type == "monthly_low_rise":
+            thresholds = params.get("thresholds", [5, 7, 10])
+            return MonthlyLowRiseRule(thresholds=thresholds)
+
+        elif rule_type == "price_target":
+            reference_price = params["reference_price"]
+            thresholds = params.get("thresholds", [-10, -7, -5, -3, 3, 5, 7, 10])
+            return PriceTargetRule(reference_price=reference_price, thresholds=thresholds)
 
         elif rule_type == "daily_change":
             threshold = params.get("threshold", 5.0)

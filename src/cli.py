@@ -137,9 +137,15 @@ def main():
     add_rule_parser.add_argument(
         "--type",
         required=True,
-        choices=["monthly_high_drop", "daily_change", "volume_spike", "custom"],
+        choices=["monthly_high_drop", "monthly_low_rise", "price_target", "daily_change", "volume_spike", "custom"],
     )
     add_rule_parser.add_argument("--params", required=True, help="JSON parameters")
+
+    list_rules_parser = rules_subparsers.add_parser("list", help="List rules")
+    list_rules_parser.add_argument("--user", type=int, required=True, help="User ID")
+
+    delete_rule_parser = rules_subparsers.add_parser("delete", help="Delete rule")
+    delete_rule_parser.add_argument("--id", type=int, required=True, help="Rule ID")
 
     # DB commands
     db_parser = subparsers.add_parser("db", help="Database management")
@@ -208,6 +214,14 @@ def main():
             )
             created = repo.create(rule)
             print(f"Created rule with ID: {created.id}")
+        elif args.action == "list":
+            repo = RuleRepository(db)
+            for rule in repo.get_user_rules(args.user):
+                print(f"ID: {rule.id}, type: {rule.rule_type}, params: {rule.parameters}")
+        elif args.action == "delete":
+            repo = RuleRepository(db)
+            repo.delete(args.id)
+            print(f"Deleted rule ID: {args.id}")
 
     elif args.command == "db":
         if args.action == "status":

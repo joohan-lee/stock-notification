@@ -9,6 +9,8 @@ from datetime import datetime
 from src.rules.engine import RuleEngine, Alert, AlertSeverity
 from src.rules.types import (
     MonthlyHighDropRule,
+    MonthlyLowRiseRule,
+    PriceTargetRule,
     DailyChangeRule,
     VolumeSpikeRule,
     CustomRule,
@@ -127,6 +129,256 @@ class TestMonthlyHighDropRule:
             assert "AAPL" in alert.message
             assert "monthly high" in alert.message.lower()
             assert "$" in alert.message  # Price formatting
+
+
+class TestMonthlyLowRiseRule:
+    """Test monthly low rise rule evaluation."""
+
+    @pytest.fixture
+    def rule(self):
+        return MonthlyLowRiseRule(thresholds=[5, 7, 10])
+
+    @pytest.fixture
+    def stock_data(self):
+        return StockData(
+            ticker="SPY",
+            current_price=110.00,
+            previous_close=108.00,
+            open_price=108.50,
+            high=111.00,
+            low=107.50,
+            volume=80_000_000,
+            timestamp=datetime.now(),
+        )
+
+    @pytest.fixture
+    def historical_data(self):
+        return HistoricalData(
+            ticker="SPY",
+            monthly_high=115.00,
+            monthly_low=100.00,  # Current price 110 = +10% rise
+            avg_volume_20d=70_000_000,
+            prices=[],
+            volumes=[],
+        )
+
+    def test_triggers_on_threshold_breach(self, rule, stock_data, historical_data):
+        """Should trigger all thresholds when price rises enough."""
+        alerts = rule.evaluate(stock_data, historical_data)
+
+        # Price 110 vs low 100 = +10%, should trigger 5%, 7%, 10% thresholds
+        assert len(alerts) == 3
+        thresholds_triggered = [a.metadata["threshold"] for a in alerts]
+        assert 5 in thresholds_triggered
+        assert 7 in thresholds_triggered
+        assert 10 in thresholds_triggered
+
+    def test_no_alert_when_below_threshold(self, rule, stock_data, historical_data):
+        """Should not trigger when rise is below all thresholds."""
+        historical_data.monthly_low = 108.00  # Current 110 = +1.9% rise
+        alerts = rule.evaluate(stock_data, historical_data)
+
+        assert len(alerts) == 0
+
+    def test_triggers_partial_thresholds(self, rule, stock_data, historical_data):
+        """Should trigger only thresholds that are met."""
+        historical_data.monthly_low = 103.00  # Current 110 = +6.8% rise
+        alerts = rule.evaluate(stock_data, historical_data)
+
+        # Only 5% threshold met, not 7% or 10%
+        assert len(alerts) == 1
+        assert alerts[0].metadata["threshold"] == 5
+
+    def test_alert_severity_info_for_small_rise(self, rule, stock_data, historical_data):
+        """Should set INFO severity for 5% threshold."""
+        historical_data.monthly_low = 103.00  # +6.8%, triggers 5% only
+        alerts = rule.evaluate(stock_data, historical_data)
+
+        assert alerts[0].severity == AlertSeverity.INFO
+
+    def test_alert_severity_warning_for_7pct(self, rule, stock_data, historical_data):
+        """Should set WARNING severity for 7% threshold."""
+        historical_data.monthly_low = 102.00  # Current 110 = +7.8%, triggers 5% and 7%
+        alerts = rule.evaluate(stock_data, historical_data)
+
+        severities = {a.metadata["threshold"]: a.severity for a in alerts}
+        assert severities[5] == AlertSeverity.INFO
+        assert severities[7] == AlertSeverity.WARNING
+
+    def test_alert_severity_critical_for_10pct(self, rule, stock_data, historical_data):
+        """Should set CRITICAL severity for 10% threshold."""
+        alerts = rule.evaluate(stock_data, historical_data)
+
+        critical_alerts = [a for a in alerts if a.metadata["threshold"] == 10]
+        assert len(critical_alerts) == 1
+        assert critical_alerts[0].severity == AlertSeverity.CRITICAL
+
+    def test_alert_message_format(self, rule, stock_data, historical_data):
+        """Should format alert message correctly."""
+        alerts = rule.evaluate(stock_data, historical_data)
+
+        for alert in alerts:
+            assert "SPY" in alert.message
+            assert "monthly low" in alert.message.lower()
+            assert "$" in alert.message
+
+    def test_no_historical_data_returns_empty(self, rule, stock_data):
+        """Should return empty list when no historical data."""
+        alerts = rule.evaluate(stock_data, None)
+
+        assert len(alerts) == 0
+
+    def test_rule_engine_creates_monthly_low_rise_rule(self):
+        """RuleEngine should instantiate MonthlyLowRiseRule from UserRule."""
+        from src.rules.engine import RuleEngine
+        from src.database.models import UserRule
+
+        engine = RuleEngine()
+        user_rule = UserRule(
+            id=1,
+            user_id=1,
+            rule_type="monthly_low_rise",
+            parameters={"thresholds": [5, 7, 10]},
+            enabled=True,
+        )
+        rule = engine.create_rule(user_rule)
+
+        assert isinstance(rule, MonthlyLowRiseRule)
+        assert rule.thresholds == [5, 7, 10]
+
+
+class TestPriceTargetRule:
+    """Test price target rule evaluation."""
+
+    REFERENCE_PRICE = 55.05
+
+    @pytest.fixture
+    def rule(self):
+        return PriceTargetRule(
+            reference_price=self.REFERENCE_PRICE,
+            thresholds=[-10, -7, -5, -3, 3, 5, 7, 10],
+        )
+
+    def _make_stock(self, price: float) -> StockData:
+        return StockData(
+            ticker="DDM",
+            current_price=price,
+            previous_close=self.REFERENCE_PRICE,
+            open_price=self.REFERENCE_PRICE,
+            high=price,
+            low=price,
+            volume=1_000_000,
+            timestamp=datetime.now(),
+        )
+
+    def test_rise_threshold_triggers(self, rule):
+        """Should trigger rise thresholds when price is above reference."""
+        # +5.45% rise, should trigger +3% and +5%
+        stock = self._make_stock(58.05)
+        alerts = rule.evaluate(stock, None)
+
+        thresholds_triggered = [a.metadata["threshold"] for a in alerts]
+        assert 3 in thresholds_triggered
+        assert 5 in thresholds_triggered
+        assert 7 not in thresholds_triggered
+
+    def test_drop_threshold_triggers(self, rule):
+        """Should trigger drop thresholds when price is below reference."""
+        # -3.63% drop, should trigger -3%
+        stock = self._make_stock(53.05)
+        alerts = rule.evaluate(stock, None)
+
+        thresholds_triggered = [a.metadata["threshold"] for a in alerts]
+        assert -3 in thresholds_triggered
+        assert -5 not in thresholds_triggered
+
+    def test_no_alert_within_band(self, rule):
+        """Should not trigger when price is within all thresholds."""
+        # ~+1% change
+        stock = self._make_stock(55.60)
+        alerts = rule.evaluate(stock, None)
+
+        assert len(alerts) == 0
+
+    def test_partial_thresholds_triggered(self, rule):
+        """Should trigger only thresholds that are met."""
+        # -5.45% drop — should trigger -3% and -5%, not -7% or -10%
+        stock = self._make_stock(52.05)
+        alerts = rule.evaluate(stock, None)
+
+        thresholds_triggered = [a.metadata["threshold"] for a in alerts]
+        assert -3 in thresholds_triggered
+        assert -5 in thresholds_triggered
+        assert -7 not in thresholds_triggered
+        assert -10 not in thresholds_triggered
+
+    def test_severity_info_for_small_threshold(self, rule):
+        """Should set INFO severity for thresholds < 5%."""
+        stock = self._make_stock(53.30)  # ~-3.2%, triggers -3%
+        alerts = rule.evaluate(stock, None)
+
+        info_alerts = [a for a in alerts if a.metadata["threshold"] == -3]
+        assert len(info_alerts) == 1
+        assert info_alerts[0].severity == AlertSeverity.INFO
+
+    def test_severity_warning_for_5pct(self, rule):
+        """Should set WARNING severity for thresholds >= 5% and < 10%."""
+        stock = self._make_stock(52.29)  # ~-5.0%, triggers -3%, -5%
+        alerts = rule.evaluate(stock, None)
+
+        warning_alerts = [a for a in alerts if a.metadata["threshold"] == -5]
+        assert len(warning_alerts) == 1
+        assert warning_alerts[0].severity == AlertSeverity.WARNING
+
+    def test_severity_critical_for_10pct(self, rule):
+        """Should set CRITICAL severity for thresholds >= 10%."""
+        stock = self._make_stock(49.00)  # ~-11%, triggers all negative thresholds
+        alerts = rule.evaluate(stock, None)
+
+        critical_alerts = [a for a in alerts if a.metadata["threshold"] == -10]
+        assert len(critical_alerts) == 1
+        assert critical_alerts[0].severity == AlertSeverity.CRITICAL
+
+    def test_message_contains_reference_price(self, rule):
+        """Message should include the reference price."""
+        stock = self._make_stock(57.80)
+        alerts = rule.evaluate(stock, None)
+
+        assert len(alerts) > 0
+        for alert in alerts:
+            assert "55.05" in alert.message
+
+    def test_message_contains_current_price(self, rule):
+        """Message should include the current price."""
+        stock = self._make_stock(57.80)
+        alerts = rule.evaluate(stock, None)
+
+        assert len(alerts) > 0
+        for alert in alerts:
+            assert "57.80" in alert.message
+
+    def test_historical_data_none_works(self, rule):
+        """Should work correctly when historical_data is None."""
+        stock = self._make_stock(49.00)
+        alerts = rule.evaluate(stock, None)
+
+        assert len(alerts) > 0
+
+    def test_rule_engine_creates_price_target_rule(self):
+        """RuleEngine should instantiate PriceTargetRule from UserRule."""
+        engine = RuleEngine()
+        user_rule = UserRule(
+            id=1,
+            user_id=1,
+            rule_type="price_target",
+            parameters={"reference_price": 55.05, "thresholds": [-10, -5, 5, 10]},
+            enabled=True,
+        )
+        rule = engine.create_rule(user_rule)
+
+        assert isinstance(rule, PriceTargetRule)
+        assert rule.reference_price == 55.05
+        assert rule.thresholds == [-10, -5, 5, 10]
 
 
 class TestDailyChangeRule:

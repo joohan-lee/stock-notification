@@ -90,7 +90,7 @@ class EmailNotifier(Notifier):
             AlertSeverity.CRITICAL: "[CRITICAL]",
         }
         prefix = severity_prefix.get(alert.severity, "[Alert]")
-        return f"{prefix} Modo Alert: {alert.ticker}"
+        return f"[MODO]{prefix} {alert.ticker}"
 
     def _create_text_body(self, alert: Alert) -> str:
         """Create plain text email body."""

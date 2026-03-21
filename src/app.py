@@ -3,6 +3,7 @@ Main application entry point.
 """
 
 import logging
+import os
 
 from dotenv import load_dotenv
 
@@ -18,7 +19,7 @@ from src.database.repository import (
     SymbolRepository,
 )
 from src.data.fetcher import StockDataFetcher
-from src.rules.engine import RuleEngine
+from src.rules.engine import RuleEngine, AlertSeverity
 from src.notifiers.base import Notifier
 from src.notifiers.discord import DiscordNotifier
 from src.notifiers.email import EmailNotifier
@@ -85,16 +86,27 @@ class ModoApp:
         notifiers = []
         if user.discord_webhook_url:
             notifiers.append(DiscordNotifier(webhook_url=user.discord_webhook_url))
-        if user.email:
-            # Email notifier would need SMTP config
-            pass
 
-        if not notifiers:
+        email_notifiers = []
+        smtp_user = os.environ.get("GMAIL_USER", "")
+        smtp_password = os.environ.get("GMAIL_APP_PASSWORD", "")
+        gmail_to = os.environ.get("GMAIL_TO", "")
+        if smtp_user and smtp_password and gmail_to:
+            email_notifiers.append(EmailNotifier(
+                smtp_host="smtp.gmail.com",
+                smtp_port=587,
+                smtp_user=smtp_user,
+                smtp_password=smtp_password,
+                from_address=smtp_user,
+                to_addresses=[gmail_to],
+            ))
+
+        if not notifiers and not email_notifiers:
             return
 
         # Check each symbol
         for symbol in watchlist:
-            self._check_symbol(user_id, symbol, rules, notifiers)
+            self._check_symbol(user_id, symbol, rules, notifiers, email_notifiers)
 
     def _check_symbol(
         self,
@@ -102,6 +114,7 @@ class ModoApp:
         symbol: Symbol,
         rules: list[UserRule],
         notifiers: list[Notifier],
+        email_notifiers: list[Notifier] | None = None,
     ) -> None:
         """Check alerts for a single symbol."""
         try:
@@ -140,6 +153,12 @@ class ModoApp:
                     result = notifier.send(alert)
                     if result.success:
                         self.alert_repo.mark_notified(alert_record.id)
+
+                if alert.severity >= AlertSeverity.WARNING:
+                    for notifier in (email_notifiers or []):
+                        result = notifier.send(alert)
+                        if result.success:
+                            self.alert_repo.mark_notified(alert_record.id)
 
         except Exception as e:
             logger.error(f"Error checking {symbol.ticker}: {e}")

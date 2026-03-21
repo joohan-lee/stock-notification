@@ -26,8 +26,9 @@ scp -i ~/.ssh/oracle-modo.key <local-file> opc@157.151.233.33:~/
 # Download file from server
 scp -i ~/.ssh/oracle-modo.key opc@157.151.233.33:<remote-file> ./
 
-# Sync project (recommended)
+# Sync project (recommended) - excludes DB, logs, and secrets
 rsync -avz --exclude '.venv' --exclude '__pycache__' --exclude '.git' \
+  --exclude '/data' --exclude 'logs' --exclude '.env' --exclude 'config.yaml' \
   -e "ssh -i ~/.ssh/oracle-modo.key" \
   ./ opc@157.151.233.33:~/stock-notification/
 ```
