@@ -61,6 +61,29 @@ def add_to_watchlist(
     return {"added": added, "not_found": not_found}
 
 
+def remove_from_watchlist(
+    db: Database,
+    user_id: int,
+    tickers: list[str],
+) -> dict:
+    """Remove symbols from user's watchlist."""
+    symbol_repo = SymbolRepository(db)
+    watchlist_repo = WatchlistRepository(db)
+
+    removed = []
+    not_found = []
+
+    for ticker in tickers:
+        symbol = symbol_repo.get_by_ticker(ticker.upper())
+        if symbol:
+            watchlist_repo.remove(user_id, symbol.id)
+            removed.append(ticker.upper())
+        else:
+            not_found.append(ticker.upper())
+
+    return {"removed": removed, "not_found": not_found}
+
+
 def sync_symbols(db: Database) -> dict:
     """Sync symbols from external sources."""
     syncer = SymbolSyncer()
@@ -118,6 +141,10 @@ def main():
     show_watchlist_parser = watchlist_subparsers.add_parser("show", help="Show watchlist")
     show_watchlist_parser.add_argument("--user", type=int, required=True, help="User ID")
 
+    remove_watchlist_parser = watchlist_subparsers.add_parser("remove", help="Remove from watchlist")
+    remove_watchlist_parser.add_argument("--user", type=int, required=True, help="User ID")
+    remove_watchlist_parser.add_argument("--symbols", required=True, help="Comma-separated symbols")
+
     # Symbol commands
     symbol_parser = subparsers.add_parser("symbols", help="Symbol management")
     symbol_subparsers = symbol_parser.add_subparsers(dest="action")
@@ -140,6 +167,7 @@ def main():
         choices=["monthly_high_drop", "monthly_low_rise", "price_target", "daily_change", "volume_spike", "custom"],
     )
     add_rule_parser.add_argument("--params", required=True, help="JSON parameters")
+    add_rule_parser.add_argument("--symbol", help="Ticker symbol for symbol-specific rule (omit for global rule)")
 
     list_rules_parser = rules_subparsers.add_parser("list", help="List rules")
     list_rules_parser.add_argument("--user", type=int, required=True, help="User ID")
@@ -191,6 +219,12 @@ def main():
             symbols = repo.get_user_watchlist(args.user)
             for s in symbols:
                 print(f"{s.ticker}: {s.name}")
+        elif args.action == "remove":
+            tickers = [t.strip() for t in args.symbols.split(",")]
+            result = remove_from_watchlist(db, args.user, tickers)
+            print(f"Removed: {result['removed']}")
+            if result["not_found"]:
+                print(f"Not found: {result['not_found']}")
 
     elif args.command == "symbols":
         if args.action == "sync":
@@ -205,19 +239,36 @@ def main():
 
     elif args.command == "rules":
         if args.action == "add":
+            symbol_id = None
+            if args.symbol:
+                symbol_repo = SymbolRepository(db)
+                sym = symbol_repo.get_by_ticker(args.symbol.upper())
+                if not sym:
+                    print(f"Symbol not found: {args.symbol.upper()}")
+                    db.close()
+                    return
+                symbol_id = sym.id
             repo = RuleRepository(db)
             rule = UserRule(
                 user_id=args.user,
                 rule_type=args.type,
                 parameters=json.loads(args.params),
                 enabled=True,
+                symbol_id=symbol_id,
             )
             created = repo.create(rule)
-            print(f"Created rule with ID: {created.id}")
+            scope = f"symbol={args.symbol.upper()}" if symbol_id else "global"
+            print(f"Created rule with ID: {created.id} ({scope})")
         elif args.action == "list":
+            symbol_repo = SymbolRepository(db)
             repo = RuleRepository(db)
             for rule in repo.get_user_rules(args.user):
-                print(f"ID: {rule.id}, type: {rule.rule_type}, params: {rule.parameters}")
+                if rule.symbol_id:
+                    sym = symbol_repo.get_by_id(rule.symbol_id)
+                    scope = sym.ticker if sym else f"symbol_id={rule.symbol_id}"
+                else:
+                    scope = "global"
+                print(f"ID: {rule.id}, type: {rule.rule_type}, scope: {scope}, params: {rule.parameters}")
         elif args.action == "delete":
             repo = RuleRepository(db)
             repo.delete(args.id)

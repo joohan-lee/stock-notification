@@ -17,6 +17,7 @@ from src.database.repository import (
     RuleRepository,
     AlertHistoryRepository,
 )
+from src.cli import add_to_watchlist, remove_from_watchlist
 
 
 class TestDatabaseConnection:
@@ -304,6 +305,22 @@ class TestWatchlistRepository:
 
         with pytest.raises(Exception):  # Should raise IntegrityError or similar
             repos["watchlist"].add(user.id, symbol.id)
+
+    def test_remove_from_watchlist_command(self, repos):
+        """Should remove known symbols and report unknown ones."""
+        db = repos["watchlist"].db
+        user = repos["user"].create(User(email="test@example.com"))
+        symbol = repos["symbol"].create(
+            Symbol(ticker="UDOW", name="ProShares UltraPro Dow30", type="etf", exchange="NYSE")
+        )
+        repos["watchlist"].add(user.id, symbol.id)
+
+        result = remove_from_watchlist(db, user.id, ["UDOW", "UNKNOWN"])
+
+        assert result["removed"] == ["UDOW"]
+        assert result["not_found"] == ["UNKNOWN"]
+        watchlist = repos["watchlist"].get_user_watchlist(user.id)
+        assert len(watchlist) == 0
 
 
 class TestRuleRepository:

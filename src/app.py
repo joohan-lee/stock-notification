@@ -118,13 +118,21 @@ class ModoApp:
     ) -> None:
         """Check alerts for a single symbol."""
         try:
+            # Apply only global rules (symbol_id=None) or rules specific to this symbol
+            applicable_rules = [
+                r for r in rules
+                if r.symbol_id is None or r.symbol_id == symbol.id
+            ]
+            if not applicable_rules:
+                return
+
             # Fetch current data
             stock_data = self.fetcher.get_current_data(symbol.ticker)
             historical_data = self.fetcher.get_historical_data(symbol.ticker)
 
             # Evaluate rules
             alerts = self.rule_engine.evaluate_rules(
-                rules, stock_data, historical_data
+                applicable_rules, stock_data, historical_data
             )
 
             # Filter and send alerts

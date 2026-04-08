@@ -43,3 +43,6 @@ config.yaml
 # OS
 .DS_Store
 Thumbs.db
+
+# Private notes (not for version control)
+private/

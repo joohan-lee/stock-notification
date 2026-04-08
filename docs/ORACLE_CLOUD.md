@@ -108,6 +108,7 @@ nano .env
 uv run modo symbols sync
 uv run modo user add --discord "$DISCORD_WEBHOOK_URL"
 uv run modo watchlist add --user 1 --symbols SPY,DIA,QQQM
+uv run modo watchlist remove --user 1 --symbols UDOW
 uv run modo rules add --user 1 --type monthly_high_drop --params '{"thresholds": [-3, -5, -10, -15, -20]}'
 ```
 
